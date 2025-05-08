@@ -1,6 +1,6 @@
 
-from universal_mcp.servers import SingleMCPServer
 from universal_mcp.integrations import ApiKeyIntegration
+from universal_mcp.servers import SingleMCPServer
 from universal_mcp.stores import EnvironmentStore
 
 from universal_mcp_openai.app import OpenaiApp
