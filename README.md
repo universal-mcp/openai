@@ -1,6 +1,6 @@
-# Openai Universal MCP Server
+# OpenAI Universal MCP Server
 
-This repository contains an implementation of an Openai Universal MCP (Model Context Protocol) server. It provides a standardized interface for interacting with Openai's SEO and backlink analysis tools through a unified API.
+This repository contains an implementation of an OpenAI Universal MCP (Model Context Protocol) server. It provides a standardized interface for interacting with OpenAI's SEO and backlink analysis tools through a unified API.
 
 The server is built using the Universal MCP framework.
 
@@ -8,7 +8,7 @@ This implementation follows the MCP specification, ensuring compatibility with o
 
 ## Usage
 
-You can start using Openai directly from [agentr.dev](https://agentr.dev). Visit [agentr.dev/apps](https://agentr.dev/apps) and enable Openai.
+You can start using OpenAI directly from [agentr.dev](https://agentr.dev). Visit [agentr.dev/apps](https://agentr.dev/apps) and enable OpenAI.
 
 If you have not used universal mcp before follow the setup instructions at [agentr.dev/quickstart](https://agentr.dev/quickstart)
 
