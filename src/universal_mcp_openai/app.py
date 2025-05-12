@@ -15,7 +15,7 @@ from openai.types.audio_model import AudioModel as OpenAiAudioModel
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.file_object import FileObject
 from openai.types.image_model import ImageModel as OpenAiImageModel
-from universal_mcp.applications.application import APIApplication
+from universal_mcp.applications import APIApplication
 from universal_mcp.integrations import Integration
 
 
