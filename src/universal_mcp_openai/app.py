@@ -40,12 +40,10 @@ class OpenaiApp(APIApplication):
         organization = creds.get("organization")
         project = creds.get("project")
 
-        # AsyncOpenAI will raise OpenAIError if api_key is None or invalid
         return AsyncOpenAI(
             api_key=api_key,
             organization=organization,
             project=project,
-            # Consider adding default_headers, max_retries, timeout if configurable via integration
         )
 
     async def create_chat_completion(
@@ -103,18 +101,16 @@ class OpenaiApp(APIApplication):
                 "stop": stop,
                 "user": user,
             }
-            # Remove None values to avoid sending them, as OpenAI SDK might treat them specifically
             common_params = {k: v for k, v in common_params.items() if v is not None}
 
             if not stream:
                 response = await client.chat.completions.create(
-                    stream=False, **common_params # type: ignore
+                    stream=False, **common_params 
                 )
                 return response.model_dump()
             else:
-                # Stream and aggregate
                 stream_response = await client.chat.completions.create(
-                    stream=True, **common_params # type: ignore
+                    stream=True, **common_params 
                 )
 
                 final_content_parts: list[str] = []
@@ -123,11 +119,11 @@ class OpenaiApp(APIApplication):
                 finish_reason: str | None = None
 
                 async for chunk in stream_response:
-                    if not first_chunk_data and chunk.id: # Capture initial metadata
+                    if not first_chunk_data and chunk.id:
                         first_chunk_data = {
                             "id": chunk.id,
                             "created": chunk.created,
-                            "model": chunk.model, # This will be the model actually used by the API
+                            "model": chunk.model,
                             "system_fingerprint": chunk.system_fingerprint,
                         }
 
@@ -147,12 +143,11 @@ class OpenaiApp(APIApplication):
                     "index": 0,
                 }
 
-                # Reconstruct a response dictionary mimicking the non-streamed one (without usage)
                 response_dict = {
                     **first_chunk_data,
                     "object": "chat.completion",
                     "choices": [aggregated_choice],
-                    "usage": None, # Usage is not available from stream chunks
+                    "usage": None,
                 }
                 return response_dict
 
@@ -161,7 +156,6 @@ class OpenaiApp(APIApplication):
         except Exception as e:
             return f"Error creating chat completion for model {model}: {type(e).__name__} - {e}"
 
-    # --- Files Methods ---
     async def upload_file(
         self, file: OpenAiFileTypes, purpose: OpenAiFilePurpose
     ) -> dict[str, Any] | str:
@@ -220,7 +214,7 @@ class OpenaiApp(APIApplication):
             if after: params["after"] = after
             if order: params["order"] = order
 
-            response_page = await client.files.list(**params) # type: ignore
+            response_page = await client.files.list(**params) 
             return response_page.model_dump()
         except OpenAIError as e:
             return f"OpenAI API error listing files: {type(e).__name__} - {e}"
@@ -290,11 +284,8 @@ class OpenaiApp(APIApplication):
         """
         try:
             client = await self._get_client()
-            # This returns HttpxBinaryResponseContent
             api_response = await client.files.content(file_id=file_id)
 
-            # Determine if content is likely text or binary based on Content-Type
-            # The raw httpx.Response is available at api_response.response
             http_response_headers = api_response.response.headers
             content_type = http_response_headers.get("Content-Type", "").lower()
 
@@ -305,16 +296,15 @@ class OpenaiApp(APIApplication):
                "csv" in content_type:
                 return api_response.text # Decoded text
             else:
-                # Assume binary, or if .text would fail, return base64
-                binary_content = api_response.content # Raw bytes
+                binary_content = api_response.content
                 return {
                     "file_id": file_id,
                     "content_type": content_type,
                     "content_base64": base64.b64encode(binary_content).decode(),
                 }
-        except UnicodeDecodeError: # Explicitly catch if .text fails for some reason
+        except UnicodeDecodeError:
             client = await self._get_client()
-            api_response = await client.files.content(file_id=file_id) # Re-fetch if needed, or ensure it's cached
+            api_response = await client.files.content(file_id=file_id)
             binary_content = api_response.content
             content_type = api_response.response.headers.get("Content-Type", "").lower()
             return {
@@ -371,7 +361,6 @@ class OpenaiApp(APIApplication):
         try:
             client = await self._get_client()
 
-            # Handle model-specific defaults or constraints if not explicitly set by user
             effective_model = model if model is not None else "dall-e-3" # Ensure effective_model is not None
 
             effective_params = {
@@ -385,14 +374,9 @@ class OpenaiApp(APIApplication):
                 "user": user,
                        }
 
-            # Adjust n, quality, style, size based on the effective_model if not user-specified
-            # to avoid common API errors, or let the API handle it.
-            # For now, we'll pass them as is and let OpenAI API validate.
-            # User should be aware of model-specific limitations.
-
             effective_params = {k: v for k, v in effective_params.items() if v is not None}
 
-            response = await client.images.generate(**effective_params) # type: ignore
+            response = await client.images.generate(**effective_params) 
             return response.model_dump()
         except OpenAIError as e:
             return f"OpenAI API error generating image with model {model}: {type(e).__name__} - {e}"
@@ -404,7 +388,7 @@ class OpenaiApp(APIApplication):
         image: OpenAiFileTypes,
         prompt: str,
         mask: OpenAiFileTypes | None = None,
-        model: str | OpenAiImageModel | None = "dall-e-2", # Default and only supported model
+        model: str | OpenAiImageModel | None = "dall-e-2",
         n: int | None = None,
         response_format: Literal["url", "b64_json"] | None = None,
         size: Literal["256x256", "512x512", "1024x1024"] | None = None,
@@ -434,9 +418,6 @@ class OpenaiApp(APIApplication):
         """
         try:
             client = await self._get_client()
-            # Ensure the model is explicitly "dall-e-2" or None (which defaults to "dall-e-2")
-            # If a different model is passed, the API will likely error out.
-            # The default in the signature handles the None case correctly.
             effective_model = model if model is not None else "dall-e-2"
 
             params = {
@@ -445,7 +426,7 @@ class OpenaiApp(APIApplication):
                 "user": user,        }
             params = {k: v for k, v in params.items() if v is not None}
 
-            response = await client.images.edit(**params) # type: ignore
+            response = await client.images.edit(**params) 
             return response.model_dump()
         except OpenAIError as e:
             return f"OpenAI API error creating image edit with model {effective_model}: {type(e).__name__} - {e}"
@@ -455,7 +436,7 @@ class OpenaiApp(APIApplication):
     async def create_image_variation(
         self,
         image: OpenAiFileTypes,
-        model: str | OpenAiImageModel | None = "dall-e-2", # Default and only supported model
+        model: str | OpenAiImageModel | None = "dall-e-2", 
         n: int | None = None,
         response_format: Literal["url", "b64_json"] | None = None,
         size: Literal["256x256", "512x512", "1024x1024"] | None = None,
@@ -483,7 +464,6 @@ class OpenaiApp(APIApplication):
         """
         try:
             client = await self._get_client()
-            # Ensure the model is explicitly "dall-e-2" or None (which defaults to "dall-e-2")
             effective_model = model if model is not None else "dall-e-2"
 
             params = {
@@ -492,7 +472,7 @@ class OpenaiApp(APIApplication):
                 "user": user,        }
             params = {k: v for k, v in params.items() if v is not None}
 
-            response = await client.images.create_variation(**params) # type: ignore
+            response = await client.images.create_variation(**params) 
             return response.model_dump()
         except OpenAIError as e:
             return f"OpenAI API error creating image variation with model {effective_model}: {type(e).__name__} - {e}"
@@ -553,70 +533,30 @@ class OpenaiApp(APIApplication):
             }
 
             if stream:
-                # Note: OpenAI SDK docs say streaming not supported for whisper-1.
-                # For gpt-4o-transcribe, only 'json' format is supported for streaming's underlying events.
-                # The final aggregated object will reflect the `response_format` if possible.
                 stream_response = await client.audio.transcriptions.create(
-                    **params, stream=True # type: ignore
+                    **params, stream=True 
                 )
 
-                # Aggregate stream for a consistent return type with non-streamed
-                # We are looking for the 'final_transcription' event which contains the full object
                 final_transcription_value = None
-                # The actual event type for final transcription data is when event.value is Transcription or TranscriptionVerbose
-                # and event.event == "final_transcription"
-                # The SDK's TranscriptionStreamEvent can be different event types.
-                # We look for the one that holds the complete transcription.
-                # In practice, the `FinalTranscriptionEvent` (from openai.types.audio.transcription_stream_event)
-                # has a `value` attribute that is Transcription or TranscriptionVerbose.
-                async for event in stream_response: # type: ignore # Actually AsyncStream[TranscriptionStreamEvent]
-                    # Check if the event is the one holding the final transcription object
-                    # The SDK's `FinalTranscriptionEvent` is a specific type in the Union.
-                    # We can check event.event == "final_transcription" or hasattr(event, "value")
-                    # and isinstance(event.value, (Transcription, TranscriptionVerbose))
+                async for event in stream_response:
                     if hasattr(event, 'value') and isinstance(event.value, Transcription | TranscriptionVerbose):
-                         # This check is based on the structure of FinalTranscriptionEvent
-                         # final_transcription_value = event.value
-                         # break # Assuming one final event
-                         # Let's refine this based on common patterns for final events.
-                         # If the event object itself is the final Transcription or TranscriptionVerbose object
-                         # (which can happen if the stream_cls correctly yields it from a final SSE message)
-                         # Or, if there's a specific event type for it.
-                         # The structure is usually `event_type_name(value=TranscriptionObject)`
-                         # For example, openai.types.audio.transcription_stream_event.FinalTranscriptionEvent
-                         # has `.value` that is `Transcription | TranscriptionVerbose`
-                         # For safety, let's try to access `event.value` if the event looks like a final one.
-                         # This depends on the exact structure of events yielded by the SDK for this model.
-                         # A common pattern for OpenAI streams is that the last meaningful choice/delta
-                         # or a specific "done" like event gives the full object or signals completion.
-                         # The transcription stream sends events like `TranscriptionSegment` and then a `FinalTranscriptionEvent`.
-
-                        # Heuristic: if event.value is present and is one of the target types.
-                        # This needs to match the actual structure of `FinalTranscriptionEvent`
-                        # The provided SDK code for `Transcriptions` doesn't show how `TranscriptionStreamEvent`
-                        # is structured for the final aggregated object directly. It yields events.
-                        # The `FinalTranscriptionEvent` from `openai.types.audio.transcription_stream_event`
-                        # has a `value: Union[Transcription, TranscriptionVerbose]`.
-                        # Let's assume we get an event that IS a FinalTranscriptionEvent.
-                        if event.__class__.__name__ == 'FinalTranscriptionEvent': # Check type name if direct import is messy
-                             final_transcription_value = event.value # type: ignore
+                        if event.__class__.__name__ == 'FinalTranscriptionEvent': 
+                             final_transcription_value = event.value 
                              break
 
                 if final_transcription_value:
                     return final_transcription_value.model_dump()
                 else:
-                    # Fallback or if stream did not yield a clear final object in expected way
-                    # This might mean the stream needs more sophisticated aggregation based on model/response_format
                     return {"error": "Stream aggregation failed to find final transcription object."}
             else:
                 response = await client.audio.transcriptions.create(
-                    **params, stream=False # type: ignore
+                    **params, stream=False 
                 )
                 if isinstance(response, Transcription | TranscriptionVerbose):
                     return response.model_dump()
                 elif isinstance(response, str):
                     return response
-                else: # Should not happen with correct SDK usage and response_format
+                else:
                     return {"error": "Unexpected_response_type_from_transcription_api", "data": str(response)}
 
         except OpenAIError as e:
@@ -658,7 +598,7 @@ class OpenaiApp(APIApplication):
                 "response_format": response_format if response_format is not None else NOT_GIVEN,
                 "temperature": temperature if temperature is not None else NOT_GIVEN,
             }
-            response = await client.audio.translations.create(**params) # type: ignore
+            response = await client.audio.translations.create(**params) 
 
             if isinstance(response, Translation | TranslationVerbose):
                 return response.model_dump()
@@ -702,7 +642,7 @@ class OpenaiApp(APIApplication):
         try:
             client = await self._get_client()
             params = {
-                "input": input_text, # SDK uses 'input'
+                "input": input_text,
                 "model": model,
                 "voice": voice,
                 "response_format": response_format if response_format is not None else NOT_GIVEN,
@@ -710,24 +650,19 @@ class OpenaiApp(APIApplication):
                 "instructions": instructions if instructions is not None else NOT_GIVEN,
             }
 
-            # The SDK's speech.create returns HttpxBinaryResponseContent
-            api_response = await client.audio.speech.create(**params) # type: ignore
-
-            binary_content = api_response.content # raw bytes
-
-            # Get content type from the actual response headers for accuracy
+            api_response = await client.audio.speech.create(**params) 
+            binary_content = api_response.content 
             actual_content_type = api_response.response.headers.get("Content-Type", "application/octet-stream")
 
-            # If response_format was specified, we can try to be more specific if header is generic
             if response_format and actual_content_type == "application/octet-stream":
                 mime_map = {
                     "mp3": "audio/mpeg", "opus": "audio/opus", "aac": "audio/aac",
-                    "flac": "audio/flac", "wav": "audio/wav", "pcm": "audio/L16" # PCM can vary, L16 is common
+                    "flac": "audio/flac", "wav": "audio/wav", "pcm": "audio/L16"
                 }
                 actual_content_type = mime_map.get(response_format, actual_content_type)
 
             return {
-                "model_used": str(model), # Or retrieve from response if available
+                "model_used": str(model),
                 "voice_used": voice,
                 "content_type": actual_content_type,
                 "content_base64": base64.b64encode(binary_content).decode(),
